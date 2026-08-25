@@ -147,6 +147,10 @@ to the image or added to the logged command line.
    workers to **0**, maximum workers to **1**, and idle timeout to **120
    seconds**. Enable **FlashBoot**. For production, start with **1 active
    worker** and set maximum workers according to measured load.
+   Under the endpoint's advanced CUDA settings, allow **CUDA 12.9 and 13.0
+   only** (or set the minimum CUDA version to **12.9**). The pinned image
+   declares `cuda>=12.9`; allowing 12.8 or older workers causes NVIDIA's
+   prestart hook to reject the container before `handler.py` can run.
 5. Enable **RunPod Cached Models** by setting the endpoint's **Model** field to:
 
    ```text

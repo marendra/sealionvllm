@@ -58,6 +58,6 @@
         "value": "--language-model-only"
       }
     ],
-    "allowedCudaVersions": ["13.0"]
+    "allowedCudaVersions": ["12.9", "13.0"]
   }
 }

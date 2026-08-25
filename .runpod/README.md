@@ -8,6 +8,10 @@ Run LLMs using [vLLM](https://docs.vllm.ai) with an OpenAI-compatible API
 
 Default vLLM image tag: `cu129-nightly-e9d1398d9edfd90fcc1cf783805240e3effec013`
 
+This image requires a host with CUDA compatibility **12.9 or newer**. Configure
+the endpoint's allowed CUDA versions as `12.9` and `13.0`; do not allow 12.8 or
+older workers, which fail in the NVIDIA container prestart hook.
+
 ---
 
 ## Endpoint Configuration
