@@ -22,9 +22,9 @@ jobs:
 
       - name: Extract vLLM version from Dockerfile and sync READMEs
         run: |
-          echo "Extracting vLLM version from Dockerfile..."
-          # The Dockerfile pins vLLM via `ARG VLLM_VERSION=vX.Y.Z` (the vllm/vllm-openai base image tag).
-          dockerfile_version=$(grep -oP 'ARG VLLM_VERSION=v\K[\d.]+' Dockerfile | head -1)
+          echo "Extracting vLLM image tag from Dockerfile..."
+          # VLLM_VERSION may be a release tag or a commit-addressed nightly tag.
+          dockerfile_version=$(sed -n 's/^ARG VLLM_VERSION=//p' Dockerfile | head -1)
 
           if [ -z "$dockerfile_version" ]; then
             echo "ERROR: Could not extract vLLM version from Dockerfile."
@@ -40,16 +40,21 @@ jobs:
               continue
             fi
 
-            readme_version=$(grep -oP 'Current vLLM version: \[\K[\d.]+' "$readme" || echo "")
-            echo "$readme current version: ${readme_version:-not found}"
+            readme_version=$(sed -n 's/^Default vLLM image tag: `\([^`]*\)`.*/\1/p' "$readme" | head -1)
+            echo "$readme current image tag: ${readme_version:-not found}"
 
             if [ "$readme_version" = "$dockerfile_version" ]; then
               echo "$readme is already up to date."
               continue
             fi
 
+            if [ -z "$readme_version" ]; then
+              echo "ERROR: Could not find the default vLLM image tag in $readme."
+              exit 1
+            fi
+
             echo "Updating $readme from $readme_version to $dockerfile_version..."
-            sed -i "s|Current vLLM version: \[${readme_version}\](https://github.com/vllm-project/vllm/releases/tag/v${readme_version})|Current vLLM version: [${dockerfile_version}](https://github.com/vllm-project/vllm/releases/tag/v${dockerfile_version})|g" "$readme"
+            sed -i "s|^Default vLLM image tag: .*|Default vLLM image tag: \`${dockerfile_version}\`|" "$readme"
             updated=1
           done
 
@@ -60,13 +65,13 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "docs: sync vLLM version to ${{ env.VLLM_VERSION }} in READMEs"
-          title: "docs: sync vLLM version to ${{ env.VLLM_VERSION }} in READMEs"
+          commit-message: "docs: sync vLLM image tag to ${{ env.VLLM_VERSION }} in READMEs"
+          title: "docs: sync vLLM image tag to ${{ env.VLLM_VERSION }} in READMEs"
           body: |
-            The vLLM version in the Dockerfile has been updated to `${{ env.VLLM_VERSION }}`.
+            The vLLM image tag in the Dockerfile has been updated to `${{ env.VLLM_VERSION }}`.
 
             This PR syncs the version badge/link in:
             - `README.md`
             - `.runpod/README.md`
-          branch: docs/sync-vllm-version-${{ env.VLLM_VERSION }}
+          branch: docs/sync-vllm-image-${{ env.VLLM_VERSION }}
           labels: documentation
