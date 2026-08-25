@@ -70,11 +70,21 @@ class TestGenericMapping:
 
     def test_reserved_flags_not_scanned(self):
         # HOST/PORT/API_KEY/MODEL are owned by the wrapper (or pinned in main.py).
-        args = build_vllm_args({"HOST": "0.0.0.0", "PORT": "9000", "API_KEY": "secret", "MODEL": "org/m"})
+        # HF_TOKEN stays in the process environment so it never appears in logs
+        # or the process list as a CLI argument.
+        args = build_vllm_args({
+            "HOST": "0.0.0.0",
+            "PORT": "9000",
+            "API_KEY": "secret",
+            "MODEL": "org/m",
+            "HF_TOKEN": "hf_secret",
+        })
         assert "--host" not in args
         assert "--port" not in args
         assert "--api-key" not in args
         assert "--model" not in args
+        assert "--hf-token" not in args
+        assert "hf_secret" not in args
 
 
 class TestAliases:
@@ -105,6 +115,33 @@ class TestExtraArgs:
     def test_extra_args_quoting(self):
         args = build_vllm_args({"VLLM_EXTRA_ARGS": "--override-generation-config '{\"max_new_tokens\": 512}'"})
         assert args == ["--override-generation-config", '{"max_new_tokens": 512}']
+
+
+class TestSeaLionColdStartConfig:
+    def test_sea_lion_eager_arguments(self):
+        args = build_vllm_args({
+            "MODEL_NAME": "aisingapore/gemma-sea-lion-v4.5-e2b-it",
+            "MAX_MODEL_LEN": "8192",
+            "GPU_MEMORY_UTILIZATION": "0.90",
+            "ENFORCE_EAGER": "true",
+            "TRUST_REMOTE_CODE": "true",
+        })
+
+        assert ["--model", "aisingapore/gemma-sea-lion-v4.5-e2b-it"] == args[
+            args.index("--model"):
+        ][:2]
+        assert ["--max-model-len", "8192"] == args[args.index("--max-model-len"):][:2]
+        assert ["--gpu-memory-utilization", "0.90"] == args[
+            args.index("--gpu-memory-utilization"):
+        ][:2]
+        assert "--enforce-eager" in args
+        assert "--trust-remote-code" in args
+
+    def test_explicit_false_disables_eager(self):
+        args = build_vllm_args({"ENFORCE_EAGER": "false"})
+
+        assert "--enforce-eager" not in args
+        assert "--no-enforce-eager" in args
 
 
 class TestRemovedFlags:

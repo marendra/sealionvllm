@@ -18,6 +18,7 @@ import urllib.request
 
 from args_builder import build_vllm_args
 from download_model import LOCAL_MODEL_ARGS_PATH
+from runtime_config import ConfigurationError, RuntimeConfig, configure_runtime
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -25,6 +26,7 @@ VLLM_HOST = "127.0.0.1"
 VLLM_PORT = os.getenv("VLLM_PORT", "8000")
 STARTUP_TIMEOUT = int(os.getenv("VLLM_STARTUP_TIMEOUT", "1200"))  # seconds
 HEALTH_POLL_INTERVAL = 2  # seconds
+WORKER_START_TIME = time.monotonic()
 
 vllm_process: subprocess.Popen | None = None
 
@@ -52,9 +54,21 @@ def apply_local_model_args() -> None:
     os.environ["HF_HUB_OFFLINE"] = "1"
 
 
+def build_vllm_command() -> list[str]:
+    """Return the exact vLLM subprocess command for the current environment."""
+    return [
+        "vllm",
+        "serve",
+        "--host",
+        VLLM_HOST,
+        "--port",
+        VLLM_PORT,
+        *build_vllm_args(),
+    ]
+
+
 def start_vllm() -> subprocess.Popen:
-    argv = ["vllm", "serve", "--host", VLLM_HOST, "--port", VLLM_PORT]
-    argv += build_vllm_args()
+    argv = build_vllm_command()
 
     logging.info("Starting vLLM: %s", " ".join(argv))
     # Child gets our stdout/stderr so vLLM logs land in the worker logs.
@@ -89,23 +103,50 @@ def _forward_signal(signum, _frame):
     sys.exit(128 + signum)
 
 
+def log_configuration(config: RuntimeConfig) -> None:
+    """Log effective startup settings without exposing secrets."""
+    logging.info("=== vLLM Configuration ===")
+    logging.info("Model: %s", config.model_name)
+    logging.info("Max model length: %s", config.max_model_len)
+    logging.info("GPU memory utilization: %.2f", config.gpu_memory_utilization)
+    logging.info("Enforce eager: %s", str(config.enforce_eager).lower())
+    logging.info("Trust remote code: %s", str(config.trust_remote_code).lower())
+    logging.info("==========================")
+
+
 def main() -> None:
     global vllm_process
 
     apply_local_model_args()
 
-    if not (os.getenv("MODEL_NAME") or os.getenv("VLLM_CONFIG_FILE") or os.getenv("MODEL")):
-        logging.warning("MODEL_NAME is not set; `vllm serve` will fail without a --model argument")
+    try:
+        config = configure_runtime(os.environ)
+    except ConfigurationError as exc:
+        logging.critical("Configuration error: %s", exc)
+        sys.exit(2)
+
+    log_configuration(config)
 
     for sig in (signal.SIGTERM, signal.SIGINT):
         signal.signal(sig, _forward_signal)
 
+    vllm_initialization_started = time.monotonic()
     vllm_process = start_vllm()
     try:
         wait_for_vllm(vllm_process)
     except RuntimeError as e:
         logging.error("%s", e)
         sys.exit(1)
+
+    vllm_initialization_elapsed = time.monotonic() - vllm_initialization_started
+    worker_startup_elapsed = time.monotonic() - WORKER_START_TIME
+    logging.info(
+        "startup_timing worker_startup_elapsed_seconds=%.2f "
+        "vllm_initialization_elapsed_seconds=%.2f "
+        "model_load_elapsed_seconds=unavailable (see vLLM model loading log)",
+        worker_startup_elapsed,
+        vllm_initialization_elapsed,
+    )
 
     # Import here (not at module import time) so the RunPod SDK and handler
     # start only after the backend is confirmed healthy.

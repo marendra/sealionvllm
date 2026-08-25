@@ -35,7 +35,27 @@
     "env": [
       {
         "key": "MODEL_NAME",
-        "value": "HuggingFaceTB/SmolLM2-135M-Instruct"
+        "value": "aisingapore/Gemma-SEA-LION-v4.5-E2B-IT"
+      },
+      {
+        "key": "MAX_MODEL_LEN",
+        "value": "8192"
+      },
+      {
+        "key": "GPU_MEMORY_UTILIZATION",
+        "value": "0.90"
+      },
+      {
+        "key": "ENFORCE_EAGER",
+        "value": "true"
+      },
+      {
+        "key": "TRUST_REMOTE_CODE",
+        "value": "true"
+      },
+      {
+        "key": "VLLM_EXTRA_ARGS",
+        "value": "--language-model-only"
       }
     ],
     "allowedCudaVersions": ["13.0"]

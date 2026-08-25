@@ -5,6 +5,12 @@ the official `vllm/vllm-openai` server image: at startup it builds a `vllm serve
 from your environment variables, waits for the server to report healthy, and then proxies
 RunPod jobs to it over localhost HTTP. All vLLM behavior is configured through env vars.
 
+Before constructing the command, `src/runtime_config.py` requires a non-empty
+`MODEL_NAME`, validates `MAX_MODEL_LEN` and `GPU_MEMORY_UTILIZATION`, and applies
+the serverless defaults `MAX_MODEL_LEN=8192`, `GPU_MEMORY_UTILIZATION=0.90`,
+`ENFORCE_EAGER=true`, and `TRUST_REMOTE_CODE=true` when those optional values
+are missing. Invalid values fail before the vLLM subprocess starts.
+
 ## How env vars become engine args
 
 `src/args_builder.py` translates environment variables into `vllm serve` CLI flags:
@@ -68,7 +74,11 @@ These are consumed by the wrapper itself, not passed to vLLM:
 | Variable              | Default | Description                                                            |
 | --------------------- | ------- | ---------------------------------------------------------------------- |
 | `MODEL_NAME`          | —       | Required. HF repo id or local path of the model.                        |
-| `HF_TOKEN`            | —       | Hugging Face token for gated/private models.                            |
+| `HF_TOKEN`            | —       | Hugging Face token for gated/private models. Inherited by vLLM; never converted to a CLI argument or logged. |
+| `MAX_MODEL_LEN`       | `8192`  | Validated positive context length; forwarded as `--max-model-len`.       |
+| `GPU_MEMORY_UTILIZATION` | `0.90` | Validated value in `(0, 1]`; forwarded to vLLM.                       |
+| `ENFORCE_EAGER`       | `true`  | Faster cold starts by avoiding CUDA graph capture; set false for throughput testing. |
+| `TRUST_REMOTE_CODE`   | `true`  | Allows Hugging Face remote model loading code.                           |
 | `BASE_PATH`           | `/runpod-volume` | Root for the HF cache (persists on a network volume).          |
 | `MAX_CONCURRENCY`     | `30`    | Max concurrent jobs per worker (RunPod concurrency modifier). vLLM queues internally beyond this. |
 | `VLLM_PORT`           | `8000`  | Loopback port the internal `vllm serve` binds to.                       |

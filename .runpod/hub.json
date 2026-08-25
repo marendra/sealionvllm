@@ -1,20 +1,20 @@
 {
-  "title": "vLLM",
-  "description": "Deploy OpenAI-Compatible Blazing-Fast LLM Endpoints powered by vLLM",
+  "title": "SEA-LION Gemma 4 vLLM",
+  "description": "Deploy AI Singapore SEA-LION Gemma 4 with a cold-start-optimized OpenAI-compatible vLLM worker",
   "type": "serverless",
   "category": "language",
   "iconUrl": "https://registry.npmmirror.com/@lobehub/icons-static-png/latest/files/dark/vllm-color.png",
   "config": {
     "runsOn": "GPU",
     "containerDiskInGb": 150,
-    "gpuIds": "ADA_80_PRO,AMPERE_80",
+    "gpuIds": "ADA_24,AMPERE_24,AMPERE_48,ADA_48_PRO,ADA_80_PRO,AMPERE_80",
     "gpuCount": 1,
     "allowedCudaVersions": ["13.0"],
     "presets": [
       {
-        "name": "deepseek-ai/deepseek-r1-distill-llama-8b",
+        "name": "aisingapore/Gemma-SEA-LION-v4.5-E2B-IT",
         "defaults": {
-          "MODEL_NAME": "deepseek-ai/deepseek-r1-distill-llama-8b"
+          "MODEL_NAME": "aisingapore/Gemma-SEA-LION-v4.5-E2B-IT"
         }
       }
     ],
@@ -25,7 +25,8 @@
           "name": "Model",
           "type": "huggingface",
           "description": "Hugging Face model name",
-          "required": true
+          "required": true,
+          "default": "aisingapore/Gemma-SEA-LION-v4.5-E2B-IT"
         }
       },
       {
@@ -73,7 +74,7 @@
           "name": "Trust Remote Code",
           "type": "boolean",
           "description": "Trust remote code from Hugging Face.",
-          "default": false,
+          "default": true,
           "advanced": true
         }
       },
@@ -157,7 +158,7 @@
               "value": "float32"
             }
           ],
-          "default": "auto",
+          "default": "bfloat16",
           "advanced": true
         }
       },
@@ -187,7 +188,7 @@
           "name": "Max Model Length",
           "type": "string",
           "description": "Model context length.",
-          "default": "auto",
+          "default": "8192",
           "advanced": true
         }
       },
@@ -257,7 +258,7 @@
           "name": "Enable Prefix Caching",
           "type": "boolean",
           "description": "Enables automatic prefix caching.",
-          "default": false,
+          "default": true,
           "advanced": true
         }
       },
@@ -287,7 +288,17 @@
           "name": "Max Num Seqs",
           "type": "number",
           "description": "Maximum number of sequences per iteration.",
-          "default": 256,
+          "default": 32,
+          "advanced": true
+        }
+      },
+      {
+        "key": "MAX_NUM_BATCHED_TOKENS",
+        "input": {
+          "name": "Max Num Batched Tokens",
+          "type": "number",
+          "description": "Maximum tokens scheduled in one iteration.",
+          "default": 8192,
           "advanced": true
         }
       },
@@ -582,7 +593,7 @@
           "name": "GPU Memory Utilization",
           "type": "number",
           "description": "Sets GPU VRAM utilization",
-          "default": 0.95,
+          "default": 0.90,
           "advanced": true
         }
       },
@@ -602,7 +613,7 @@
           "name": "Enforce Eager",
           "type": "boolean",
           "description": "Always use eager-mode PyTorch. If False (0), will use eager mode and CUDA graph in hybrid for maximal performance and flexibility",
-          "default": false,
+          "default": true,
           "advanced": true
         }
       },
@@ -681,7 +692,37 @@
           "name": "Max Concurrency",
           "type": "number",
           "description": "Max concurrent requests per worker. vLLM has an internal queue, so you don't have to worry about limiting by VRAM, this is for improving scaling/load balancing efficiency",
-          "default": 30,
+          "default": 32,
+          "advanced": true
+        }
+      },
+      {
+        "key": "VLLM_EXTRA_ARGS",
+        "input": {
+          "name": "Additional vLLM Arguments",
+          "type": "string",
+          "description": "Additional arguments appended to vllm serve.",
+          "default": "--language-model-only",
+          "advanced": true
+        }
+      },
+      {
+        "key": "VLLM_STARTUP_TIMEOUT",
+        "input": {
+          "name": "vLLM Startup Timeout",
+          "type": "number",
+          "description": "Seconds to wait for the internal vLLM health endpoint.",
+          "default": 1200,
+          "advanced": true
+        }
+      },
+      {
+        "key": "REQUEST_TIMEOUT",
+        "input": {
+          "name": "Request Timeout",
+          "type": "number",
+          "description": "Seconds allowed for a request to the internal vLLM server.",
+          "default": 3600,
           "advanced": true
         }
       },

@@ -56,7 +56,19 @@ ENV_ALIASES = {
 # alias, --model has the MODEL_NAME alias. --api-key stays reserved because the
 # worker intentionally does not support it: the internal server binds to
 # loopback only and RunPod authenticates callers at the platform.
-RESERVED_ENV_VARS = frozenset({"HOST", "PORT", "API_KEY", "MODEL", "CONFIG", "HELP"})
+RESERVED_ENV_VARS = frozenset(
+    {
+        "HOST",
+        "PORT",
+        "API_KEY",
+        "MODEL",
+        "CONFIG",
+        "HELP",
+        # Leave the Hugging Face token in the subprocess environment. Passing it as
+        # --hf-token would expose it in the startup command log and process list.
+        "HF_TOKEN",
+    }
+)
 
 # Flags that take a value. vLLM parses int/float/JSON values itself.
 VALUE_FLAGS = frozenset({

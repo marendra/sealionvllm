@@ -23,8 +23,10 @@ loopback HTTP.
 
 ```
 Container start:
-  ENTRYPOINT python3 /src/main.py
+  ENTRYPOINT python3 -u /handler.py
+    ├─ delegates to src/main.py
     ├─ (optional) reads /local_model_args.json for baked-in models
+    ├─ validates runtime_config (MODEL_NAME required; serverless defaults applied)
     ├─ args_builder.build_vllm_args()  → env vars → CLI flags
     ├─ spawns `vllm serve --host 127.0.0.1 --port $VLLM_PORT ...`
     ├─ polls GET /health until ready (fail fast if vLLM exits or times out)
@@ -42,6 +44,8 @@ boundary or the CLI; that is what makes vLLM upgrades a one-line `VLLM_VERSION` 
 
 - `src/main.py`: container entrypoint — builds the `vllm serve` command, manages the
   subprocess (health polling, signal forwarding), then starts the RunPod loop.
+- `src/runtime_config.py`: fail-fast environment validation plus cold-start defaults;
+  contains no model weights, credentials, or vLLM imports.
 - `src/args_builder.py`: pure-Python env var → CLI flag translation (allowlist of
   `vllm serve` flags + legacy aliases + `VLLM_EXTRA_ARGS` passthrough). No third-party
   imports, so it is fully unit-testable on CPU runners.
@@ -92,6 +96,7 @@ VLLM_EXTRA_ARGS  >  env aliases (MODEL_NAME, ...)  >  env flag scan
 ```
 src/
 ├── main.py            # Entrypoint: vLLM subprocess + RunPod loop lifecycle
+├── runtime_config.py  # Required model + validated cold-start defaults
 ├── args_builder.py    # env vars → `vllm serve` CLI flags (pure Python)
 ├── handler.py         # RunPod handler: aiohttp proxy to the vLLM server
 └── download_model.py  # Build-time model download (Option 2)
@@ -109,6 +114,9 @@ src/
   `LORA_MODULES`, `HF_OVERRIDES`, ...).
 - **Wrapper envs**: `MAX_CONCURRENCY`, `VLLM_PORT`, `VLLM_STARTUP_TIMEOUT`,
   `REQUEST_TIMEOUT`.
+- **Required model**: `MODEL_NAME` must be non-empty. Optional serverless defaults are
+  `MAX_MODEL_LEN=8192`, `GPU_MEMORY_UTILIZATION=0.90`, `ENFORCE_EAGER=true`, and
+  `TRUST_REMOTE_CODE=true`; endpoint environment values remain configurable.
 
 When vLLM changes, don't hand-audit the allowlist in `args_builder.py` — verify it
 mechanically with `scripts/check_vllm_flags.py`, which introspects the real
@@ -132,8 +140,9 @@ workers at container start.
 
 ### 3. **Error Handling**
 
-- Startup failures (bad flag, missing model, OOM during load) → vLLM exits before
-  `/health` → `main.py` fails the worker fast instead of accepting jobs.
+- Missing/invalid required configuration fails before a vLLM process is created. Other
+  startup failures (bad flag, OOM during load) → vLLM exits before `/health` →
+  `main.py` fails the worker instead of accepting jobs.
 - Request failures → the proxy yields a RunPod job error containing the vLLM HTTP
   status and body (vLLM's own OpenAI-compatible error payloads flow through unchanged).
 - If the vLLM process dies while serving, the next job gets an immediate

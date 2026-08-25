@@ -64,6 +64,9 @@ environment-variable configuration, including `VLLM_EXTRA_ARGS`.
 - A root [`handler.py`](handler.py) exposes the Queue endpoint handler at the
   repository location expected by RunPod deployment tooling, then delegates
   startup to the unchanged upstream `src/main.py` implementation.
+- The worker now validates runtime configuration before starting vLLM, applies
+  cold-start-oriented defaults, and logs an effective configuration summary and
+  startup timings without exposing secrets.
 - This README adds the SEA-LION deployment and request examples below.
 - The model is **not baked into the Docker image**. Keep `MODEL_NAME`
   configurable at endpoint runtime and use RunPod Cached Models. In particular,
@@ -72,9 +75,63 @@ environment-variable configuration, including `VLLM_EXTRA_ARGS`.
 - No dependency replacement is performed at runtime. Transformers comes from
   the pinned vLLM base image.
 
-The worker implementation under `src/` is unchanged from upstream. The root
-entrypoint exists only for RunPod handler discovery; requests are still handled
-by `src/handler.py` through the upstream `runpod.serverless.start()` call.
+The SEA-LION repository declares the Gemma 4 conditional-generation
+architecture and bfloat16 weights. This worker therefore keeps vLLM,
+Transformers, Hugging Face Hub, PyTorch, and CUDA paired exactly as shipped in
+the pinned official vLLM nightly image; it does not independently upgrade or
+replace any of them. The nightly pin contains the heterogeneous Gemma 4 config
+handling needed by this model.
+
+The existing upstream proxy and OpenAI-compatible routes remain unchanged. The
+root entrypoint exists only for RunPod handler discovery; requests are still
+handled by `src/handler.py` through the upstream `runpod.serverless.start()`
+call.
+
+## Cold-start defaults and fail-fast behavior
+
+`MODEL_NAME` is mandatory. If it is missing or blank, the worker exits before
+launching vLLM with `MODEL_NAME environment variable is required`. This prevents
+the pinned vLLM image from silently serving its own default model.
+
+The wrapper supplies these defaults when their environment variables are
+omitted:
+
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `MAX_MODEL_LEN` | `8192` | Avoid allocating for the model's full 128K context on short/medium workloads. |
+| `GPU_MEMORY_UTILIZATION` | `0.90` | Leave reasonable VRAM headroom on a single 24 GB GPU. |
+| `ENFORCE_EAGER` | `true` | Skip the expensive CUDA graph capture used by throughput-oriented serving. |
+| `TRUST_REMOTE_CODE` | `true` | Permit model-provided Hugging Face loading code if required. |
+
+Eager mode trades some steady-state throughput for substantially faster
+scale-to-zero startup. Set `ENFORCE_EAGER=false` later if the endpoint uses an
+active worker and throughput becomes more important than cold-start latency.
+The worker does not estimate model-download or model-load phases itself; vLLM
+logs those timings directly, while the wrapper logs total worker startup and
+vLLM initialization elapsed time after `/health` succeeds.
+
+Use the following RunPod environment variables for the initial SEA-LION
+deployment:
+
+```dotenv
+MODEL_NAME=aisingapore/Gemma-SEA-LION-v4.5-E2B-IT
+MAX_MODEL_LEN=8192
+GPU_MEMORY_UTILIZATION=0.90
+MAX_NUM_SEQS=32
+MAX_NUM_BATCHED_TOKENS=8192
+MAX_CONCURRENCY=32
+DTYPE=bfloat16
+ENABLE_PREFIX_CACHING=true
+ENFORCE_EAGER=true
+TRUST_REMOTE_CODE=true
+VLLM_STARTUP_TIMEOUT=1200
+REQUEST_TIMEOUT=3600
+VLLM_EXTRA_ARGS=--language-model-only
+```
+
+Add `HF_TOKEN` separately as a RunPod secret when authentication is needed.
+The token is inherited by vLLM and Hugging Face libraries; it is never written
+to the image or added to the logged command line.
 
 ## Deploy from GitHub to RunPod Serverless
 
@@ -85,9 +142,10 @@ by `src/handler.py` through the upstream `runpod.serverless.start()` call.
    repository under **Import Git Repository**.
 3. Select branch `main`, use the root `Dockerfile`, and choose **Queue** as the
    endpoint type. RunPod will build the worker directly from GitHub.
-4. Select a GPU with at least **24 GB VRAM**. For initial testing, set minimum
-   (active) workers to **0**, maximum workers to **1**, and idle timeout to
-   **30 seconds**. Enable **FlashBoot**.
+4. Select a GPU with at least **24 GB VRAM**. For development, set active
+   workers to **0**, maximum workers to **1**, and idle timeout to **120
+   seconds**. Enable **FlashBoot**. For production, start with **1 active
+   worker** and set maximum workers according to measured load.
 5. Enable **RunPod Cached Models** by setting the endpoint's **Model** field to:
 
    ```text

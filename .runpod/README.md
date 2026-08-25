@@ -16,20 +16,21 @@ All behaviour is controlled through environment variables:
 
 | Environment Variable                | Description                                       | Default             | Options                                                            |
 | ----------------------------------- | ------------------------------------------------- | ------------------- | ------------------------------------------------------------------ |
-| `MODEL_NAME`                        | Path of the model weights                         |                     | Local folder or Hugging Face repo ID                               |
+| `MODEL_NAME`                        | Required model repository                         | `aisingapore/Gemma-SEA-LION-v4.5-E2B-IT` | Local folder or Hugging Face repo ID              |
 | `HF_TOKEN`                          | HuggingFace access token for gated/private models |                     | Your HuggingFace access token                                      |
-| `MAX_MODEL_LEN`                     | Model's maximum context length                    |                     | Integer (e.g., 4096)                                               |
+| `MAX_MODEL_LEN`                     | Model's maximum context length                    | 8192                | Positive integer                                                   |
 | `QUANTIZATION`                      | Quantization method                               |                     | "awq", "gptq", "squeezellm", "bitsandbytes"                        |
 | `TENSOR_PARALLEL_SIZE`              | Number of GPUs                                    | 1                   | Integer                                                            |
-| `GPU_MEMORY_UTILIZATION`            | Fraction of GPU memory to use                     | 0.9                 | Float between 0.0 and 1.0                                          |
-| `MAX_NUM_SEQS`                      | Maximum number of sequences per iteration         | 256                 | Integer                                                            |
+| `GPU_MEMORY_UTILIZATION`            | Fraction of GPU memory to use                     | 0.90                | Float greater than 0.0 and at most 1.0                             |
+| `MAX_NUM_SEQS`                      | Maximum number of sequences per iteration         | 32                  | Integer                                                            |
 | `CUSTOM_CHAT_TEMPLATE`              | Custom chat template override                     |                     | Jinja2 template string                                             |
 | `ENABLE_AUTO_TOOL_CHOICE`           | Enable automatic tool selection                   | false               | boolean (true or false)                                            |
 | `TOOL_CALL_PARSER`                  | Parser for tool calls                             |                     | "mistral", "hermes", "llama3_json", "granite", "deepseek_v3", etc. |
 | `REASONING_PARSER`                  | Parser for reasoning-capable models               |                     | "deepseek_r1", "qwen3", "granite", "hunyuan_a13b"                  |
 | `OPENAI_SERVED_MODEL_NAME_OVERRIDE` | Override served model name in API                 |                     | String                                                             |
-| `MAX_CONCURRENCY`                   | Maximum concurrent requests                       | 300                 | Integer                                                            |
-| `ENFORCE_EAGER`                     |  If True, we will disable CUDA graph and always execute the model in eager mode. If False, we will use CUDA graph and eager execution in hybrid for maximal performance and flexibility. | false | boolean (true or false) | 
+| `MAX_CONCURRENCY`                   | Maximum concurrent requests                       | 32                  | Integer                                                            |
+| `ENFORCE_EAGER`                     | Disable CUDA graph capture for faster cold starts | true                | boolean (true or false)                                            |
+| `TRUST_REMOTE_CODE`                 | Allow Hugging Face remote model loading code      | true                | boolean (true or false)                                            |
 
 **Pass any vLLM engine arg** not listed above by setting an env var with the **UPPERCASED** name of the corresponding `vllm serve` CLI flag (e.g. `MAX_MODEL_LEN=4096` → `--max-model-len 4096`, `ENABLE_CHUNKED_PREFILL=true` → `--enable-chunked-prefill`). The worker launches `vllm serve` with these flags, so values — including JSON like `SPECULATIVE_CONFIG` — are parsed by vLLM itself. Anything not recognized can be appended verbatim with `VLLM_EXTRA_ARGS`. See the [vLLM engine args docs](https://docs.vllm.ai/en/latest/configuration/engine_args) for all available options.
 
