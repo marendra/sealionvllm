@@ -107,7 +107,7 @@ LORA_MODULES='[{"name":"my-adapter","path":"org/adapter-repo"}]'
 
 | ARG                 | Default          | Description                                                     |
 | ------------------- | ---------------- | --------------------------------------------------------------- |
-| `VLLM_VERSION`      | `v0.23.0`        | Tag of the official `vllm/vllm-openai` base image.              |
+| `VLLM_VERSION`      | `cu129-nightly-e9d1398d9edfd90fcc1cf783805240e3effec013` | Tag of the official `vllm/vllm-openai` base image. |
 | `MODEL_NAME`        | —                | If set, the model is baked into the image at build time.        |
 | `MODEL_REVISION`    | `main`           | Model revision for the baked model.                             |
 | `TOKENIZER_NAME`    | same as model    | Optional separate tokenizer repo.                               |

@@ -6,7 +6,7 @@ Run LLMs using [vLLM](https://docs.vllm.ai) with an OpenAI-compatible API
 
 [![RunPod](https://api.runpod.io/badge/runpod-workers/worker-vllm)](https://www.runpod.io/console/hub/runpod-workers/worker-vllm)
 
-Current vLLM version: [0.27.1](https://github.com/vllm-project/vllm/releases/tag/v0.27.1)
+Default vLLM image tag: `cu129-nightly-e9d1398d9edfd90fcc1cf783805240e3effec013`
 
 ---
 

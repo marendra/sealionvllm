@@ -8,13 +8,17 @@ Deploy OpenAI-Compatible Blazing-Fast LLM Endpoints powered by the [vLLM](https:
 
 ![vLLM worker banner](https://image.runpod.ai/preview/vllm/vllm-banner.png)
 
-Current vLLM version: [0.27.1](https://github.com/vllm-project/vllm/releases/tag/v0.27.1)
+Default vLLM image tag: `cu129-nightly-e9d1398d9edfd90fcc1cf783805240e3effec013`
 
 
 > Check out our Load Balancer implementation here: [vLLM Load Balancer](https://github.com/runpod-workers/vllm-loadbalancer-ep)
 
 ## Table of Contents
 
+- [SEA-LION Gemma 4 deployment](#sea-lion-gemma-4-deployment)
+  - [What differs from upstream](#what-differs-from-upstream)
+  - [Deploy from GitHub to RunPod Serverless](#deploy-from-github-to-runpod-serverless)
+  - [OpenAI-compatible Indonesian sentiment example](#openai-compatible-indonesian-sentiment-example)
 - [Setting up the Serverless Worker](#setting-up-the-serverless-worker)
   - [Option 1: Deploy Any Model Using Pre-Built Docker Image [Recommended]](#option-1-deploy-any-model-using-pre-built-docker-image-recommended)
     - [Configuration](#configuration)
@@ -37,6 +41,101 @@ Current vLLM version: [0.27.1](https://github.com/vllm-project/vllm/releases/tag
   - [Request Input Parameters](#request-input-parameters)
   - [Sampling Parameters](#sampling-parameters)
     - [Text Input Formats](#text-input-formats)
+
+# SEA-LION Gemma 4 deployment
+
+This repository is a focused deployment of
+[`runpod-workers/worker-vllm`](https://github.com/runpod-workers/worker-vllm)
+for `aisingapore/Gemma-SEA-LION-v4.5-E2B-IT`. It was imported from upstream
+`main` at commit `7a925039a53a10eab38d1764eb717a2ea5bdee07` and continues to
+use the upstream RunPod wrapper around `vllm serve` and its
+environment-variable configuration, including `VLLM_EXTRA_ARGS`.
+
+## What differs from upstream
+
+- The default `vllm/vllm-openai` base is pinned to
+  `cu129-nightly-e9d1398d9edfd90fcc1cf783805240e3effec013`. This uses the vLLM
+  heterogeneous-configuration fix needed by Gemma 4 instead of patching the
+  model configuration or enabling global per-layer attribute access.
+- [`runpod.env.example`](runpod.env.example) provides initial SEA-LION runtime
+  settings.
+- This README adds the SEA-LION deployment and request examples below.
+- The model is **not baked into the Docker image**. Keep `MODEL_NAME`
+  configurable at endpoint runtime and use RunPod Cached Models. In particular,
+  build this repository without `--build-arg MODEL_NAME`; the Dockerfile's empty
+  default means its optional upstream model-download step is skipped.
+- No dependency replacement is performed at runtime. Transformers comes from
+  the pinned vLLM base image.
+
+The worker implementation under `src/` is unchanged from upstream.
+
+## Deploy from GitHub to RunPod Serverless
+
+1. Create or fork a GitHub repository containing this project, and push the
+   committed `main` branch.
+2. In the RunPod console, connect GitHub under **Settings > Connections** if
+   necessary. Go to **Serverless**, choose **New Endpoint**, then select the
+   repository under **Import Git Repository**.
+3. Select branch `main`, use the root `Dockerfile`, and choose **Queue** as the
+   endpoint type. RunPod will build the worker directly from GitHub.
+4. Select a GPU with at least **24 GB VRAM**. For initial testing, set minimum
+   (active) workers to **0**, maximum workers to **1**, and idle timeout to
+   **30 seconds**. Enable **FlashBoot**.
+5. Enable **RunPod Cached Models** by setting the endpoint's **Model** field to:
+
+   ```text
+   aisingapore/Gemma-SEA-LION-v4.5-E2B-IT
+   ```
+
+   Cached Models supplies the weights at runtime; the GitHub Docker build does
+   not download SEA-LION.
+6. Add the runtime environment variables from [`runpod.env.example`](runpod.env.example).
+   `MODEL_NAME` remains a runtime setting and `VLLM_EXTRA_ARGS` is passed through
+   to `vllm serve` by the upstream worker.
+7. Deploy the endpoint and monitor its build and worker logs. After it is ready,
+   use the Queue endpoint's OpenAI-compatible base URL:
+
+   ```text
+   https://api.runpod.ai/v2/<ENDPOINT_ID>/openai/v1
+   ```
+
+The recommended scale settings above favor a low-cost first validation. Adjust
+GPU choice and concurrency only after confirming memory use and latency with
+your workload.
+
+## OpenAI-compatible Indonesian sentiment example
+
+Install the OpenAI Python client (`pip install openai`), export
+`RUNPOD_API_KEY`, replace `<ENDPOINT_ID>`, and run:
+
+```python
+import os
+
+from openai import OpenAI
+
+client = OpenAI(
+    api_key=os.environ["RUNPOD_API_KEY"],
+    base_url="https://api.runpod.ai/v2/<ENDPOINT_ID>/openai/v1",
+)
+
+response = client.chat.completions.create(
+    model="aisingapore/Gemma-SEA-LION-v4.5-E2B-IT",
+    messages=[
+        {
+            "role": "system",
+            "content": "Anda adalah analis sentimen media sosial Indonesia.",
+        },
+        {
+            "role": "user",
+            "content": "Analisis sentimen terhadap Pertamina: Wah mantap, harga naik lagi 😂",
+        },
+    ],
+    temperature=0.2,
+    max_tokens=256,
+)
+
+print(response.choices[0].message.content)
+```
 
 # Setting up the Serverless Worker
 
@@ -115,7 +214,7 @@ To build an image with the model baked in, you must specify the following docker
   - `MODEL_NAME`
 - **Optional**
   - `MODEL_REVISION`: Model revision to load (default: `main`).
-  - `VLLM_VERSION`: Tag of the official [`vllm/vllm-openai`](https://hub.docker.com/r/vllm/vllm-openai) base image to use (default: `v0.23.0`).
+  - `VLLM_VERSION`: Tag of the official [`vllm/vllm-openai`](https://hub.docker.com/r/vllm/vllm-openai) base image to use (default: `cu129-nightly-e9d1398d9edfd90fcc1cf783805240e3effec013`).
   - `BASE_PATH`: Storage directory where huggingface cache and model will be located. (default: `/runpod-volume`, which will utilize network storage if you attach it or create a local directory within the image if you don't. If your intention is to bake the model into the image, you should set this to something like `/models` to make sure there are no issues if you were to accidentally attach network storage.)
   - `QUANTIZATION`
   - `TOKENIZER_NAME`: Tokenizer repository if you would like to use a different tokenizer than the one that comes with the model. (default: `None`, which uses the model's tokenizer)
