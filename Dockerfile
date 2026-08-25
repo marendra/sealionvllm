@@ -45,6 +45,24 @@ RUN --mount=type=secret,id=HF_TOKEN,required=false \
         python3 /src/download_model.py; \
     fi
 
+# Runtime defaults for the SEA-LION RunPod deployment. These are deliberately
+# declared after the optional build-time download step: the empty MODEL_NAME
+# build ARG still prevents model weights from being baked into the image.
+# Every value remains overridable through RunPod endpoint environment variables.
+ENV MODEL_NAME="aisingapore/Gemma-SEA-LION-v4.5-E2B-IT" \
+    MAX_MODEL_LEN="8192" \
+    GPU_MEMORY_UTILIZATION="0.90" \
+    MAX_NUM_SEQS="32" \
+    MAX_NUM_BATCHED_TOKENS="8192" \
+    MAX_CONCURRENCY="32" \
+    DTYPE="bfloat16" \
+    ENABLE_PREFIX_CACHING="true" \
+    ENFORCE_EAGER="true" \
+    TRUST_REMOTE_CODE="true" \
+    VLLM_STARTUP_TIMEOUT="1200" \
+    REQUEST_TIMEOUT="3600" \
+    VLLM_EXTRA_ARGS="--language-model-only"
+
 # The root handler.py is the RunPod-discoverable entrypoint. It delegates to
 # src/main.py, which starts vLLM, waits for /health, and registers the upstream
 # queue handler with runpod.serverless.start(). Explicit ENTRYPOINT ensures the

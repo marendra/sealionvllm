@@ -73,7 +73,7 @@ These are consumed by the wrapper itself, not passed to vLLM:
 
 | Variable              | Default | Description                                                            |
 | --------------------- | ------- | ---------------------------------------------------------------------- |
-| `MODEL_NAME`          | —       | Required. HF repo id or local path of the model.                        |
+| `MODEL_NAME`          | `aisingapore/Gemma-SEA-LION-v4.5-E2B-IT` | HF repo id or local path; an explicitly blank value fails fast. |
 | `HF_TOKEN`            | —       | Hugging Face token for gated/private models. Inherited by vLLM; never converted to a CLI argument or logged. |
 | `MAX_MODEL_LEN`       | `8192`  | Validated positive context length; forwarded as `--max-model-len`.       |
 | `GPU_MEMORY_UTILIZATION` | `0.90` | Validated value in `(0, 1]`; forwarded to vLLM.                       |

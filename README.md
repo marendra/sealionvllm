@@ -70,9 +70,10 @@ environment-variable configuration, including `VLLM_EXTRA_ARGS`.
   startup timings without exposing secrets.
 - This README adds the SEA-LION deployment and request examples below.
 - The model is **not baked into the Docker image**. Keep `MODEL_NAME`
-  configurable at endpoint runtime and use RunPod Cached Models. In particular,
-  build this repository without `--build-arg MODEL_NAME`; the Dockerfile's empty
-  default means its optional upstream model-download step is skipped.
+  configurable at endpoint runtime and use RunPod Cached Models. The image has
+  SEA-LION as its runtime default, but the build-time `MODEL_NAME` argument stays
+  empty and the runtime default is declared only after the optional download
+  step, so the GitHub build does not download model weights.
 - No dependency replacement is performed at runtime. Transformers comes from
   the pinned vLLM base image.
 
@@ -90,9 +91,11 @@ call.
 
 ## Cold-start defaults and fail-fast behavior
 
-`MODEL_NAME` is mandatory. If it is missing or blank, the worker exits before
-launching vLLM with `MODEL_NAME environment variable is required`. This prevents
-the pinned vLLM image from silently serving its own default model.
+The image defaults `MODEL_NAME` to the SEA-LION repository while keeping it
+overridable at endpoint runtime. If an endpoint explicitly replaces it with an
+empty value, the worker exits before launching vLLM with
+`MODEL_NAME environment variable is required`. It can never fall through to
+vLLM's unrelated built-in model default.
 
 The wrapper supplies these defaults when their environment variables are
 omitted:
@@ -111,8 +114,9 @@ The worker does not estimate model-download or model-load phases itself; vLLM
 logs those timings directly, while the wrapper logs total worker startup and
 vLLM initialization elapsed time after `/health` succeeds.
 
-Use the following RunPod environment variables for the initial SEA-LION
-deployment:
+The image embeds the following non-secret runtime defaults, so GitHub-imported
+endpoints work even when RunPod does not copy `.runpod/hub.json` settings into
+the endpoint environment. You may override any of them in RunPod:
 
 ```dotenv
 MODEL_NAME=aisingapore/Gemma-SEA-LION-v4.5-E2B-IT
