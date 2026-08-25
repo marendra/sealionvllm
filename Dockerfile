@@ -32,6 +32,7 @@ ENV MODEL_NAME=$MODEL_NAME \
     TOKENIZERS_PARALLELISM=false
 
 COPY src /src
+COPY handler.py /handler.py
 
 # Optionally bake the model into the image at build time. Pass the
 # HF_TOKEN build secret if the repo is gated:
@@ -44,7 +45,8 @@ RUN --mount=type=secret,id=HF_TOKEN,required=false \
         python3 /src/download_model.py; \
     fi
 
-# main.py spawns `vllm serve` with args built from the environment, waits for
-# /health, then starts the RunPod serverless loop. Explicit ENTRYPOINT so the
-# base image's own entrypoint can never swallow our command.
-ENTRYPOINT ["python3", "/src/main.py"]
+# The root handler.py is the RunPod-discoverable entrypoint. It delegates to
+# src/main.py, which starts vLLM, waits for /health, and registers the upstream
+# queue handler with runpod.serverless.start(). Explicit ENTRYPOINT ensures the
+# base image's own entrypoint cannot swallow our command.
+ENTRYPOINT ["python3", "-u", "/handler.py"]

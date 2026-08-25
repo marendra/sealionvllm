@@ -59,6 +59,9 @@ environment-variable configuration, including `VLLM_EXTRA_ARGS`.
   model configuration or enabling global per-layer attribute access.
 - [`runpod.env.example`](runpod.env.example) provides initial SEA-LION runtime
   settings.
+- A root [`handler.py`](handler.py) exposes the Queue endpoint handler at the
+  repository location expected by RunPod deployment tooling, then delegates
+  startup to the unchanged upstream `src/main.py` implementation.
 - This README adds the SEA-LION deployment and request examples below.
 - The model is **not baked into the Docker image**. Keep `MODEL_NAME`
   configurable at endpoint runtime and use RunPod Cached Models. In particular,
@@ -67,7 +70,9 @@ environment-variable configuration, including `VLLM_EXTRA_ARGS`.
 - No dependency replacement is performed at runtime. Transformers comes from
   the pinned vLLM base image.
 
-The worker implementation under `src/` is unchanged from upstream.
+The worker implementation under `src/` is unchanged from upstream. The root
+entrypoint exists only for RunPod handler discovery; requests are still handled
+by `src/handler.py` through the upstream `runpod.serverless.start()` call.
 
 ## Deploy from GitHub to RunPod Serverless
 
