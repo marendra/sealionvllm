@@ -63,7 +63,8 @@ environment-variable configuration, including `VLLM_EXTRA_ARGS`.
   settings.
 - A root [`handler.py`](handler.py) exposes the Queue endpoint handler at the
   repository location expected by RunPod deployment tooling, then delegates
-  startup to the unchanged upstream `src/main.py` implementation.
+  startup to `src/main.py`; the upstream lifecycle and proxy design are
+  preserved while runtime validation and diagnostics are added there.
 - The worker now validates runtime configuration before starting vLLM, applies
   cold-start-oriented defaults, and logs an effective configuration summary and
   startup timings without exposing secrets.
