@@ -8,6 +8,8 @@ Deploy OpenAI-Compatible Blazing-Fast LLM Endpoints powered by the [vLLM](https:
 
 ![vLLM worker banner](https://image.runpod.ai/preview/vllm/vllm-banner.png)
 
+[![Runpod](https://api.runpod.io/badge/marendra/sealionvllm)](https://console.runpod.io/hub/listing/marendra/sealionvllm)
+
 Default vLLM image tag: `cu129-nightly-e9d1398d9edfd90fcc1cf783805240e3effec013`
 
 
